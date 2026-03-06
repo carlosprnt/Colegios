@@ -12,22 +12,21 @@ const CSV_URL =
 
 // ── CRITERIOS DE PESO ────────────────────────────────────────
 const WEIGHT_CRITERIA = [
-  { key: 'score_cercania',    label: 'Cercanía a casa',           icon: '📍' },
-  { key: 'score_ingles',      label: 'Nivel de inglés',           icon: '🇬🇧' },
-  { key: 'score_limpieza',    label: 'Limpieza / cuidado',        icon: '✨' },
-  { key: 'score_ratio',       label: 'Ratio',                     icon: '👥' },
-  { key: 'score_continuidad', label: 'Continuidad educativa',     icon: '🎓' },
-  { key: 'score_conciliacion',label: 'Extraescolares / conciliación', icon: '⏰' },
-  { key: 'score_ambiente',    label: 'Ambiente general',          icon: '🌟' },
-  { key: 'score_coste',       label: 'Coste',                     icon: '💶' },
+  { key: 'score_cercania',     label: 'Cercanía',        icon: '📍' },
+  { key: 'score_ingles',       label: 'Inglés',          icon: '🇬🇧' },
+  { key: 'score_limpieza',     label: 'Limpieza',        icon: '✨' },
+  { key: 'score_ratio',        label: 'Ratio',           icon: '👥' },
+  { key: 'score_continuidad',  label: 'Continuidad',     icon: '🎓' },
+  { key: 'score_conciliacion', label: 'Conciliación',    icon: '⏰' },
+  { key: 'score_ambiente',     label: 'Ambiente',        icon: '🌟' },
+  { key: 'score_coste',        label: 'Coste',           icon: '💶' },
 ];
 
-// Pesos actuales (1–5), empiezan iguales
 const weights = Object.fromEntries(WEIGHT_CRITERIA.map(c => [c.key, 3]));
 
 // ── ESTADO GLOBAL ────────────────────────────────────────────
-let allSchools   = [];   // todos los colegios activos
-let filtered     = [];   // resultado tras filtros
+let allSchools   = [];
+let filtered     = [];
 let currentView  = 'table';
 let currentSort  = { field: 'score', asc: false };
 let activeFilter = 'all';
@@ -50,7 +49,7 @@ const MOCK_DATA = [
     lo_peor:'Ratio algo elevado en Primaria',
     dudas_pendientes:'Confirmar plazas', encaje_familiar:'Alto', prioridad:'1',
     nota_manual:'8.5', destacado:'1',
-    tags:'bilingüe,amplia continuidad,buen ambiente',
+    tags:'bilingüe,continuidad,buen ambiente',
     score_cercania:'4', score_ingles:'5', score_limpieza:'5', score_ratio:'3',
     score_continuidad:'5', score_conciliacion:'4', score_ambiente:'5', score_coste:'3',
   },
@@ -86,7 +85,7 @@ const MOCK_DATA = [
     coste_comedor:'100', coste_horario_ampliado:'60', coste_extraescolares:'30', coste_mensual_aprox:'300',
     lo_mejor:'Muy cerca de casa y precio asequible',
     lo_peor:'Sin continuidad tras Primaria y ratio alto',
-    dudas_pendientes:'Inglés flojo', encaje_familiar:'Medio', prioridad:'3',
+    dudas_pendientes:'Nivel de inglés flojo', encaje_familiar:'Medio', prioridad:'3',
     nota_manual:'6.5', destacado:'0',
     tags:'cercano,económico,sencillo',
     score_cercania:'5', score_ingles:'3', score_limpieza:'4', score_ratio:'2',
@@ -107,42 +106,30 @@ async function fetchCSV(url) {
 function parseCSV(text) {
   const lines = text.split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) return [];
-
   const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase().replace(/\s+/g, '_'));
-
   return lines.slice(1).map(line => {
     const vals = parseCSVLine(line);
-    const obj = {};
-    headers.forEach((h, i) => {
-      obj[h] = (vals[i] ?? '').trim();
-    });
+    const obj  = {};
+    headers.forEach((h, i) => { obj[h] = (vals[i] ?? '').trim(); });
     return obj;
   });
 }
 
 function parseCSVLine(line) {
   const result = [];
-  let cur = '';
-  let inQuotes = false;
-
+  let cur = '', inQ = false;
   for (let i = 0; i < line.length; i++) {
     const ch = line[i];
-    if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
-      else { inQuotes = !inQuotes; }
-    } else if (ch === ',' && !inQuotes) {
-      result.push(cur);
-      cur = '';
-    } else {
-      cur += ch;
-    }
+    if (ch === '"') { if (inQ && line[i+1] === '"') { cur += '"'; i++; } else inQ = !inQ; }
+    else if (ch === ',' && !inQ) { result.push(cur); cur = ''; }
+    else cur += ch;
   }
   result.push(cur);
   return result;
 }
 
 // ═══════════════════════════════════════════════════════════
-// 2. NORMALIZE RECORD
+// 2. NORMALIZE
 // ═══════════════════════════════════════════════════════════
 
 function toNum(val, fallback = 0) {
@@ -153,28 +140,23 @@ function toNum(val, fallback = 0) {
 function normalizeSchool(raw) {
   const s = { ...raw };
 
-  // Numeric conversions
-  const numFields = [
-    'nivel_ingles','ratio','coste_comedor','coste_horario_ampliado',
-    'coste_extraescolares','coste_mensual_aprox','nota_manual','prioridad',
-    'score_cercania','score_ingles','score_limpieza','score_ratio',
-    'score_continuidad','score_conciliacion','score_ambiente','score_coste',
-    'limpieza_instalaciones','comportamiento_ninos',
-  ];
-  numFields.forEach(f => { s[f] = toNum(s[f], s[f] === '' ? null : undefined); });
+  ['nivel_ingles','ratio','coste_comedor','coste_horario_ampliado',
+   'coste_extraescolares','coste_mensual_aprox','nota_manual','prioridad',
+   'score_cercania','score_ingles','score_limpieza','score_ratio',
+   'score_continuidad','score_conciliacion','score_ambiente','score_coste',
+   'limpieza_instalaciones','comportamiento_ninos',
+  ].forEach(f => { s[f] = toNum(s[f], s[f] === '' ? null : 0); });
 
-  // Tags array
   s.tags_arr = s.tags ? s.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
 
-  // Tipo normalizado
-  const tipoRaw = (s.tipo || '').toLowerCase();
-  if (tipoRaw.includes('concertado')) s.tipo_key = 'concertado';
-  else if (tipoRaw.includes('privado')) s.tipo_key = 'privado';
-  else if (tipoRaw.includes('público') || tipoRaw.includes('publico')) s.tipo_key = 'publico';
+  const tipo = (s.tipo || '').toLowerCase();
+  if (tipo.includes('concertado'))       s.tipo_key = 'concertado';
+  else if (tipo.includes('privado'))     s.tipo_key = 'privado';
+  else if (tipo.includes('público') || tipo.includes('publico')) s.tipo_key = 'publico';
   else s.tipo_key = 'otro';
 
-  // Activo flag
-  s.activo_bool = !s.activo || s.activo === '1' || s.activo.toLowerCase() === 'si' || s.activo.toLowerCase() === 'true';
+  s.activo_bool = !s.activo || s.activo === '1' ||
+    s.activo.toLowerCase() === 'si' || s.activo.toLowerCase() === 'true';
 
   return s;
 }
@@ -188,13 +170,13 @@ function calcScore(school) {
   WEIGHT_CRITERIA.forEach(c => {
     const w = weights[c.key] ?? 1;
     const v = school[c.key];
-    if (v != null && !isNaN(v)) {
+    if (v != null && !isNaN(v) && v > 0) {
       totalVal += v * w;
-      totalW   += w * 5; // max score per criterion = 5
+      totalW   += w * 5;
     }
   });
   if (totalW === 0) return school.nota_manual ?? 0;
-  return Math.round((totalVal / totalW) * 100) / 10; // 0–10
+  return Math.round((totalVal / totalW) * 100) / 10;
 }
 
 function applyScores(schools) {
@@ -208,7 +190,6 @@ function applyScores(schools) {
 function applyFiltersAndSort() {
   let list = [...allSchools];
 
-  // Search
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
     list = list.filter(s =>
@@ -218,29 +199,23 @@ function applyFiltersAndSort() {
     );
   }
 
-  // Chip filter
   switch (activeFilter) {
-    case 'concertado':   list = list.filter(s => s.tipo_key === 'concertado'); break;
-    case 'privado':      list = list.filter(s => s.tipo_key === 'privado'); break;
-    case 'publico':      list = list.filter(s => s.tipo_key === 'publico'); break;
-    case 'ingles':       list = list.filter(s => toNum(s.score_ingles) >= 4); break;
-    case 'cercano':      list = list.filter(s => toNum(s.score_cercania) >= 4); break;
-    case 'continuidad':  list = list.filter(s => toNum(s.score_continuidad) >= 4); break;
-    default: break;
+    case 'concertado':  list = list.filter(s => s.tipo_key === 'concertado'); break;
+    case 'privado':     list = list.filter(s => s.tipo_key === 'privado');    break;
+    case 'publico':     list = list.filter(s => s.tipo_key === 'publico');    break;
+    case 'ingles':      list = list.filter(s => toNum(s.score_ingles) >= 4);  break;
+    case 'cercano':     list = list.filter(s => toNum(s.score_cercania) >= 4); break;
+    case 'continuidad': list = list.filter(s => toNum(s.score_continuidad) >= 4); break;
   }
 
-  // Sort
   list.sort((a, b) => {
     let va = a[currentSort.field] ?? 0;
     let vb = b[currentSort.field] ?? 0;
-
-    // Numeric sort where applicable
     const na = parseFloat(va), nb = parseFloat(vb);
     if (!isNaN(na) && !isNaN(nb)) { va = na; vb = nb; }
     else { va = String(va).toLowerCase(); vb = String(vb).toLowerCase(); }
-
     if (va < vb) return currentSort.asc ? -1 : 1;
-    if (va > vb) return currentSort.asc ? 1 : -1;
+    if (va > vb) return currentSort.asc ?  1 : -1;
     return 0;
   });
 
@@ -254,106 +229,89 @@ function applyFiltersAndSort() {
 function renderInsights() {
   if (!allSchools.length) return;
 
-  const schools = allSchools; // use full set for insights
+  const schools = allSchools;
   const sorted  = [...schools].sort((a, b) => b.score - a.score);
   const best    = sorted[0];
 
-  // Helper: best by numeric field (higher = better)
   const bestBy = (field, high = true) => {
-    const valid = schools.filter(s => s[field] != null && !isNaN(toNum(s[field])));
+    const valid = schools.filter(s => s[field] != null && toNum(s[field]) > 0);
     if (!valid.length) return null;
     return valid.reduce((acc, s) =>
       (high ? toNum(s[field]) > toNum(acc[field]) : toNum(s[field]) < toNum(acc[field])) ? s : acc
     );
   };
 
-  const bestIngles     = bestBy('score_ingles');
-  const bestRatio      = bestBy('score_ratio');
-  const bestConciliacion = bestBy('score_conciliacion');
-  const cheapest       = bestBy('coste_mensual_aprox', false);
-  const mostContinuity = bestBy('score_continuidad');
-  const closest        = bestBy('score_cercania');
+  const bestIngles      = bestBy('score_ingles');
+  const bestRatio       = bestBy('score_ratio');
+  const bestConciliacion= bestBy('score_conciliacion');
+  const mostContinuity  = bestBy('score_continuidad');
+  const closest         = bestBy('score_cercania');
 
-  const costs = schools.map(s => toNum(s.coste_mensual_aprox)).filter(n => n > 0);
+  const costs   = schools.map(s => toNum(s.coste_mensual_aprox)).filter(n => n > 0);
   const avgCost = costs.length ? Math.round(costs.reduce((a, b) => a + b) / costs.length) : null;
 
-  // ── Fila 1: datos objetivos ──
-  const grid1 = document.getElementById('insightGrid1');
-  grid1.innerHTML = '';
+  // Grid 1 — datos objetivos
+  const g1 = document.getElementById('insightGrid1');
+  g1.innerHTML = '';
 
-  const cards1 = [
-    { icon:'🏆', label:'Mejor valorado', value: best?.colegio ?? '—',
-      micro: `Score: ${best?.score?.toFixed(1) ?? '—'}`, cls: 'insight-card--highlight' },
-    { icon:'📍', label:'Más cercano', value: closest?.colegio ?? '—',
-      micro: closest?.distancia_casa ? `${closest.distancia_casa}` : 'Score cercania máximo', cls: '' },
-    { icon:'🇬🇧', label:'Mejor inglés', value: bestIngles?.colegio ?? '—',
-      micro: `Score inglés: ${bestIngles?.score_ingles ?? '—'}/5`, cls: '' },
-    { icon:'👥', label:'Menor ratio', value: bestRatio?.colegio ?? '—',
-      micro: bestRatio?.ratio ? `${bestRatio.ratio} alumnos/aula` : `Score ratio: ${bestRatio?.score_ratio ?? '—'}`, cls: '' },
-    { icon:'⏰', label:'Mejor conciliación', value: bestConciliacion?.colegio ?? '—',
-      micro: `Score: ${bestConciliacion?.score_conciliacion ?? '—'}/5`, cls: '' },
-    { icon:'💶', label:'Coste medio', value: avgCost ? `${avgCost} €/mes` : '—',
-      micro: `${schools.length} colegio${schools.length !== 1 ? 's' : ''} comparados`, cls: '' },
-    { icon:'🏫', label:'Colegios comparados', value: schools.length,
-      micro: `${filtered.length} con filtros activos`, cls: '' },
-    { icon:'🎓', label:'Mayor continuidad', value: mostContinuity?.colegio ?? '—',
-      micro: `Score: ${mostContinuity?.score_continuidad ?? '—'}/5`, cls: 'insight-card--success' },
-  ];
+  [
+    { icon:'🏆', label:'Mejor valorado',      value: best?.colegio ?? '—',
+      micro: `Score ponderado: ${best?.score?.toFixed(1) ?? '—'} / 10`, cls: 'insight-card--gold' },
+    { icon:'📍', label:'Más cercano',          value: closest?.colegio ?? '—',
+      micro: closest?.distancia_casa || 'Score cercanía máximo', cls: '' },
+    { icon:'🇬🇧', label:'Mejor inglés',        value: bestIngles?.colegio ?? '—',
+      micro: `Score inglés: ${bestIngles?.score_ingles ?? '—'} / 5`, cls: '' },
+    { icon:'👥', label:'Menor ratio',          value: bestRatio?.colegio ?? '—',
+      micro: bestRatio?.ratio ? `${bestRatio.ratio} alumnos/aula` : `Score: ${bestRatio?.score_ratio ?? '—'} / 5`, cls: '' },
+    { icon:'⏰', label:'Mejor conciliación',   value: bestConciliacion?.colegio ?? '—',
+      micro: `Score: ${bestConciliacion?.score_conciliacion ?? '—'} / 5`, cls: '' },
+    { icon:'💶', label:'Coste medio',          value: avgCost ? `${avgCost} €/mes` : '—',
+      micro: `Sobre ${costs.length} colegio${costs.length !== 1 ? 's' : ''} con datos`, cls: '' },
+    { icon:'🏫', label:'Total comparados',     value: schools.length,
+      micro: `${filtered.length} visible${filtered.length !== 1 ? 's' : ''} con filtros`, cls: '' },
+    { icon:'🎓', label:'Mayor continuidad',    value: mostContinuity?.colegio ?? '—',
+      micro: `Score: ${mostContinuity?.score_continuidad ?? '—'} / 5`, cls: 'insight-card--green' },
+  ].forEach(c => g1.appendChild(makeInsightCard(c)));
 
-  cards1.forEach(c => grid1.appendChild(makeInsightCard(c)));
+  // Grid 2 — interpretativos
+  const g2 = document.getElementById('insightGrid2');
+  g2.innerHTML = '';
 
-  // ── Fila 2: interpretativos ──
-  const grid2 = document.getElementById('insightGrid2');
-  grid2.innerHTML = '';
-
-  // "Más equilibrado": menor desviación estándar de scores
   const scoreKeys = WEIGHT_CRITERIA.map(c => c.key);
-  const withStdDev = schools.map(s => {
+
+  const mostBalanced = schools.map(s => {
     const vals = scoreKeys.map(k => toNum(s[k])).filter(v => v > 0);
-    if (!vals.length) return { ...s, stddev: 99 };
+    if (!vals.length) return { ...s, _sd: 99 };
     const mean = vals.reduce((a, b) => a + b) / vals.length;
-    const sd   = Math.sqrt(vals.reduce((a, v) => a + (v - mean) ** 2, 0) / vals.length);
-    return { ...s, stddev: sd };
-  });
-  const mostBalanced = withStdDev.sort((a, b) => a.stddev - b.stddev)[0];
+    return { ...s, _sd: Math.sqrt(vals.reduce((a, v) => a + (v - mean) ** 2, 0) / vals.length) };
+  }).sort((a, b) => a._sd - b._sd)[0];
 
-  // "Más fuerte en idiomas": ingles + otros_idiomas length
-  const bestLang = [...schools].sort((a, b) => {
-    const sa = toNum(a.score_ingles) + (a.otros_idiomas ? 2 : 0);
-    const sb = toNum(b.score_ingles) + (b.otros_idiomas ? 2 : 0);
-    return sb - sa;
-  })[0];
+  const bestLang = [...schools].sort((a, b) =>
+    (toNum(b.score_ingles) + (b.otros_idiomas ? 2 : 0)) -
+    (toNum(a.score_ingles) + (a.otros_idiomas ? 2 : 0))
+  )[0];
 
-  // "Mejor para logística": conciliacion + cercania
-  const bestLogistic = [...schools].sort((a, b) => {
-    return (toNum(b.score_conciliacion) + toNum(b.score_cercania)) -
-           (toNum(a.score_conciliacion) + toNum(a.score_cercania));
-  })[0];
+  const bestLogistic = [...schools].sort((a, b) =>
+    (toNum(b.score_conciliacion) + toNum(b.score_cercania)) -
+    (toNum(a.score_conciliacion) + toNum(a.score_cercania))
+  )[0];
 
-  // "Más completo en etapas": score_continuidad
-  const mostComplete = mostContinuity;
+  const withDudas = schools.filter(s => (s.dudas_pendientes || '').trim().length > 5);
 
-  // "El que genera más dudas": tiene dudas_pendientes no vacías
-  const withDudas = schools.filter(s => s.dudas_pendientes && s.dudas_pendientes.trim().length > 5);
-  const mostDoubts = withDudas.length ? withDudas[0] : null;
-
-  // "Mejor según pesos": sorted[0] ya lo tenemos
-  const cards2 = [
-    { icon:'⚖️', label:'Más equilibrado', value: mostBalanced?.colegio ?? '—',
-      micro: 'Menor variación entre criterios', cls: '' },
-    { icon:'🌍', label:'Más fuerte en idiomas', value: bestLang?.colegio ?? '—',
-      micro: bestLang?.otros_idiomas ? `+ ${bestLang.otros_idiomas}` : 'Mejor puntuación global de idiomas', cls: '' },
+  [
+    { icon:'⚖️', label:'Más equilibrado',        value: mostBalanced?.colegio ?? '—',
+      micro: 'Menor variación entre todos los criterios', cls: '' },
+    { icon:'🌍', label:'Más fuerte en idiomas',   value: bestLang?.colegio ?? '—',
+      micro: bestLang?.otros_idiomas ? `+ ${bestLang.otros_idiomas}` : 'Mayor puntuación de inglés', cls: '' },
     { icon:'🏠', label:'Mejor logística familiar', value: bestLogistic?.colegio ?? '—',
       micro: 'Cercanía + conciliación combinadas', cls: '' },
-    { icon:'📚', label:'Más completo en etapas', value: mostComplete?.colegio ?? '—',
-      micro: mostComplete?.etapas ? mostComplete.etapas : 'Mayor continuidad educativa', cls: '' },
-    { icon:'❓', label:'Genera más dudas', value: mostDoubts?.colegio ?? 'Ninguno',
-      micro: mostDoubts?.dudas_pendientes?.substring(0, 60) ?? 'Sin dudas registradas', cls: '' },
-    { icon:'🎯', label:'Mejor según tus pesos', value: best?.colegio ?? '—',
-      micro: `Score ponderado: ${best?.score?.toFixed(1) ?? '—'}/10`, cls: 'insight-card--accent' },
-  ];
-
-  cards2.forEach(c => grid2.appendChild(makeInsightCard(c)));
+    { icon:'📚', label:'Más completo en etapas',  value: mostContinuity?.colegio ?? '—',
+      micro: mostContinuity?.etapas?.substring(0, 40) ?? 'Mayor continuidad educativa', cls: '' },
+    { icon:'❓', label:'Genera más dudas',         value: withDudas[0]?.colegio ?? 'Ninguno',
+      micro: withDudas[0]?.dudas_pendientes?.substring(0, 55) ?? 'Sin dudas registradas', cls: '' },
+    { icon:'🎯', label:'Mejor según tus pesos',   value: best?.colegio ?? '—',
+      micro: `Score actual: ${best?.score?.toFixed(1) ?? '—'} / 10`, cls: 'insight-card--gold' },
+  ].forEach(c => g2.appendChild(makeInsightCard(c)));
 }
 
 function makeInsightCard({ icon, label, value, micro, cls = '' }) {
@@ -384,14 +342,8 @@ function renderWeightsPanel() {
         <span>${c.icon} ${c.label}</span>
         <span class="weight-badge" id="badge-${c.key}">${weights[c.key]}</span>
       </div>
-      <input
-        type="range"
-        class="weight-range"
-        id="range-${c.key}"
-        min="1" max="5" step="1"
-        value="${weights[c.key]}"
-        aria-label="${c.label}"
-      />
+      <input type="range" class="weight-range" id="range-${c.key}"
+        min="1" max="5" step="1" value="${weights[c.key]}" aria-label="${c.label}" />
     `;
     grid.appendChild(item);
 
@@ -402,9 +354,8 @@ function renderWeightsPanel() {
       const v = parseInt(range.value);
       weights[c.key] = v;
       badge.textContent = v;
-      // Ramp color
-      const pct = (v - 1) / 4;
-      badge.style.background = `hsl(${220 + pct * -100}, 70%, ${35 + pct * 15}%)`;
+      const hue = 35 - ((v - 1) / 4) * 35; // amber→orange
+      badge.style.background = `hsl(${hue + 20}, 80%, ${40 + (v - 1) * 4}%)`;
       recalcAndRender();
     });
   });
@@ -426,70 +377,58 @@ function renderTable() {
   const thead = document.getElementById('compTableHead');
   const tbody = document.getElementById('compTableBody');
 
-  thead.innerHTML = `
-    <tr>
-      <th>#</th>
-      <th>Colegio</th>
-      <th>Tipo</th>
-      <th>Distancia</th>
-      <th>Etapas</th>
-      <th>Inglés</th>
-      <th>Ratio</th>
-      <th>Coste/mes</th>
-      <th>Conciliación</th>
-      <th>Lo mejor</th>
-      <th>Lo peor</th>
-      <th>Score</th>
-    </tr>
-  `;
+  thead.innerHTML = `<tr>
+    <th>#</th><th>Colegio</th><th>Tipo</th><th>Distancia</th>
+    <th>Etapas</th><th>Inglés</th><th>Ratio</th><th>Coste/mes</th>
+    <th>Conciliación</th><th>Lo mejor</th><th>Lo peor</th><th>Score</th>
+  </tr>`;
+
+  const countEl = document.getElementById('tableCount');
+  if (countEl) countEl.textContent = `${filtered.length} colegio${filtered.length !== 1 ? 's' : ''}`;
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="12" class="no-data">No hay colegios que coincidan con los filtros actuales.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12" class="no-data">Sin resultados con los filtros actuales.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = '';
+  const medals = ['🥇','🥈','🥉'];
+
   filtered.forEach((s, idx) => {
     const tr = document.createElement('tr');
     if (idx === 0) tr.classList.add('top-row');
 
     const scoreCls = s.score >= 7.5 ? 'score-high' : s.score >= 5 ? 'score-mid' : 'score-low';
-    const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
-
-    const tipoCls = { concertado:'tipo-concertado', privado:'tipo-privado', publico:'tipo-publico' }[s.tipo_key] ?? 'tipo-default';
-
-    const inglesBar = miniBar(toNum(s.score_ingles), 5);
-    const ratioBar  = miniBar(toNum(s.score_ratio), 5);
-
-    const tagsHtml = (s.tags_arr || []).slice(0, 3).map(t => `<span class="tag">${t}</span>`).join('');
+    const tipoCls  = { concertado:'tipo-concertado', privado:'tipo-privado', publico:'tipo-publico' }[s.tipo_key] ?? 'tipo-default';
+    const tagsHtml = (s.tags_arr || []).slice(0, 2).map(t => `<span class="tag">${t}</span>`).join('');
 
     tr.innerHTML = `
-      <td>${medal || (idx + 1)}</td>
+      <td style="font-size:1rem">${medals[idx] || `<span style="color:var(--text-3);font-size:.8rem">${idx + 1}</span>`}</td>
       <td class="col-name">
         ${s.colegio ?? '—'}
         <small>${s.barrio_zona ?? ''}</small>
-        ${tagsHtml}
+        <div style="margin-top:3px;display:flex;gap:3px;flex-wrap:wrap">${tagsHtml}</div>
       </td>
       <td><span class="tipo-badge ${tipoCls}">${s.tipo ?? '—'}</span></td>
-      <td>${s.distancia_casa ?? '—'}</td>
-      <td style="font-size:.78rem;max-width:130px;white-space:normal">${s.etapas ?? '—'}</td>
-      <td>${inglesBar}</td>
-      <td>${ratioBar}</td>
-      <td>${s.coste_mensual_aprox ? `${s.coste_mensual_aprox} €` : '—'}</td>
+      <td style="white-space:nowrap;font-size:.78rem">${s.distancia_casa ?? '—'}</td>
+      <td style="font-size:.75rem;max-width:120px;white-space:normal;color:var(--text-2)">${s.etapas ?? '—'}</td>
+      <td>${miniBar(toNum(s.score_ingles), 5)}</td>
+      <td>${miniBar(toNum(s.score_ratio), 5)}</td>
+      <td style="white-space:nowrap;font-weight:600">${s.coste_mensual_aprox ? `${s.coste_mensual_aprox} €` : '—'}</td>
       <td>${miniBar(toNum(s.score_conciliacion), 5)}</td>
-      <td style="font-size:.78rem;max-width:160px;white-space:normal;color:var(--clr-text-2)">${s.lo_mejor ?? '—'}</td>
-      <td style="font-size:.78rem;max-width:160px;white-space:normal;color:var(--clr-text-2)">${s.lo_peor ?? '—'}</td>
+      <td style="font-size:.75rem;max-width:150px;white-space:normal;color:var(--text-2)">${s.lo_mejor ?? '—'}</td>
+      <td style="font-size:.75rem;max-width:150px;white-space:normal;color:var(--text-2)">${s.lo_peor ?? '—'}</td>
       <td><span class="score-badge ${scoreCls}">${s.score?.toFixed(1) ?? '—'}</span></td>
     `;
-
     tbody.appendChild(tr);
   });
 }
 
 function miniBar(val, max = 5) {
-  const pct = Math.min(100, Math.round((val / max) * 100));
+  const pct = val > 0 ? Math.min(100, Math.round((val / max) * 100)) : 0;
+  const color = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--accent)' : 'var(--red)';
   return `<div class="mini-bar-wrap">
-    <div class="mini-bar"><div class="mini-bar-fill" style="width:${pct}%"></div></div>
+    <div class="mini-bar"><div class="mini-bar-fill" style="width:${pct}%;background:${color}"></div></div>
     <span class="mini-bar-val">${val > 0 ? val : '—'}</span>
   </div>`;
 }
@@ -502,49 +441,47 @@ function renderCards() {
   const grid = document.getElementById('cardsGrid');
   grid.innerHTML = '';
 
+  const countEl = document.getElementById('cardsCount');
+  if (countEl) countEl.textContent = `${filtered.length} colegio${filtered.length !== 1 ? 's' : ''}`;
+
   if (!filtered.length) {
-    grid.innerHTML = '<div class="no-data">No hay colegios con los filtros actuales.</div>';
+    grid.innerHTML = '<div class="no-data">Sin resultados con los filtros actuales.</div>';
     return;
   }
 
-  filtered.forEach((s, idx) => {
-    const card = buildSchoolCard(s, idx);
-    grid.appendChild(card);
-  });
+  filtered.forEach((s, idx) => grid.appendChild(buildSchoolCard(s, idx)));
 }
 
 function buildSchoolCard(s, idx) {
-  const el = document.createElement('div');
-  el.className = 'school-card';
-
+  const el  = document.createElement('div');
   const scoreVal = s.score ?? 0;
   const scoreCls = scoreVal >= 7.5 ? 'high' : scoreVal >= 5 ? 'mid' : 'low';
   const tipoCls  = { concertado:'tipo-concertado', privado:'tipo-privado', publico:'tipo-publico' }[s.tipo_key] ?? 'tipo-default';
-  const medal    = idx === 0 ? '🥇 ' : idx === 1 ? '🥈 ' : idx === 2 ? '🥉 ' : '';
+  const medals   = ['🥇','🥈','🥉'];
+  const rankCls  = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
+
+  el.className = `school-card ${rankCls}`;
 
   const tagsHtml = (s.tags_arr || []).map(t => `<span class="tag">${t}</span>`).join('');
 
-  const detailBlocks = buildDetailBlocks(s);
-
   el.innerHTML = `
     <div class="card-header">
-      <div>
-        <div class="card-name">${medal}${s.colegio ?? '—'}</div>
+      <div style="flex:1;min-width:0">
+        <div class="card-name">${medals[idx] ? medals[idx] + ' ' : ''}${s.colegio ?? '—'}</div>
         <div class="card-meta">
           <span class="tipo-badge ${tipoCls}">${s.tipo ?? '—'}</span>
-          ${s.distancia_casa ? `<span class="tag tag--gray">📍 ${s.distancia_casa}</span>` : ''}
+          ${s.distancia_casa ? `<span class="tag">📍 ${s.distancia_casa}</span>` : ''}
         </div>
       </div>
       <div class="card-score-circle ${scoreCls}">
-        ${scoreVal.toFixed(1)}
-        <small>/ 10</small>
+        ${scoreVal.toFixed(1)}<small>/ 10</small>
       </div>
     </div>
 
     <div class="card-summary">
       <div class="card-stat">
         <span class="card-stat-label">Etapas</span>
-        <span class="card-stat-val">${s.etapas ?? '—'}</span>
+        <span class="card-stat-val" style="font-size:.75rem;line-height:1.3">${s.etapas ?? '—'}</span>
       </div>
       <div class="card-stat">
         <span class="card-stat-label">Inglés</span>
@@ -552,32 +489,37 @@ function buildSchoolCard(s, idx) {
       </div>
       <div class="card-stat">
         <span class="card-stat-label">Ratio</span>
-        <span class="card-stat-val">${s.ratio ? `${s.ratio} alum.` : '—'}</span>
+        <span class="card-stat-val">${s.ratio ? `${s.ratio} al.` : '—'}</span>
       </div>
       <div class="card-stat">
         <span class="card-stat-label">Coste aprox.</span>
-        <span class="card-stat-val">${s.coste_mensual_aprox ? `${s.coste_mensual_aprox} €/mes` : '—'}</span>
+        <span class="card-stat-val">${s.coste_mensual_aprox ? `${s.coste_mensual_aprox} €` : '—'}</span>
       </div>
     </div>
 
     <div class="card-pros-cons">
-      <div class="card-pro">${s.lo_mejor ?? 'Sin datos'}</div>
-      <div class="card-con">${s.lo_peor ?? 'Sin datos'}</div>
+      <div class="card-pro">
+        <span class="card-pro-label">✓ Lo mejor</span>
+        ${s.lo_mejor ?? '—'}
+      </div>
+      <div class="card-con">
+        <span class="card-con-label">✗ Lo peor</span>
+        ${s.lo_peor ?? '—'}
+      </div>
     </div>
 
     ${tagsHtml ? `<div class="card-tags">${tagsHtml}</div>` : ''}
 
     <button class="card-expand-btn" aria-expanded="false">
-      <span class="expand-label">Ver más</span>
-      <svg class="expand-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .25s"><polyline points="6 9 12 15 18 9"/></svg>
+      <span class="expand-label">Ver detalles</span>
+      <svg class="expand-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
     </button>
 
     <div class="card-detail">
-      <div class="card-detail-inner">${detailBlocks}</div>
+      <div class="card-detail-inner">${buildDetailBlocks(s)}</div>
     </div>
   `;
 
-  // Expand / collapse
   const btn    = el.querySelector('.card-expand-btn');
   const detail = el.querySelector('.card-detail');
   const arrow  = el.querySelector('.expand-arrow');
@@ -586,8 +528,9 @@ function buildSchoolCard(s, idx) {
   btn.addEventListener('click', () => {
     const open = detail.classList.toggle('open');
     btn.setAttribute('aria-expanded', open);
+    btn.classList.toggle('open', open);
     arrow.style.transform = open ? 'rotate(180deg)' : '';
-    label.textContent     = open ? 'Ver menos' : 'Ver más';
+    label.textContent = open ? 'Ocultar detalles' : 'Ver detalles';
   });
 
   return el;
@@ -595,23 +538,24 @@ function buildSchoolCard(s, idx) {
 
 function scoreStars(val) {
   const v = Math.round(val);
-  return '★'.repeat(v) + '☆'.repeat(Math.max(0, 5 - v));
+  return `<span style="color:var(--accent);letter-spacing:1px">${'★'.repeat(v)}</span><span style="color:var(--border-2)">${'★'.repeat(Math.max(0, 5 - v))}</span>`;
 }
 
 function scoreColor(val) {
-  const pct = (val / 5) * 100;
-  if (pct >= 70) return 'var(--clr-success)';
-  if (pct >= 40) return 'var(--clr-accent)';
-  return 'var(--clr-danger)';
+  if (val >= 4) return 'var(--green)';
+  if (val >= 2.5) return 'var(--accent)';
+  return 'var(--red)';
 }
 
 function buildDetailBlocks(s) {
   const block = (title, rows) => {
-    const rowsHtml = rows.filter(r => r.val).map(r =>
-      `<div class="detail-row"><span class="detail-row-label">${r.label}</span><span class="detail-row-val">${r.val}</span></div>`
+    const rowsHtml = rows.filter(r => r.val != null && r.val !== '' && r.val !== 'null').map(r =>
+      `<div class="detail-row">
+        <span class="detail-row-label">${r.label}</span>
+        <span class="detail-row-val">${r.val}</span>
+      </div>`
     ).join('');
-    if (!rowsHtml) return '';
-    return `<div class="detail-block"><div class="detail-block-title">${title}</div>${rowsHtml}</div>`;
+    return rowsHtml ? `<div class="detail-block"><div class="detail-block-title">${title}</div>${rowsHtml}</div>` : '';
   };
 
   const scoreBlock = () => {
@@ -619,54 +563,53 @@ function buildDetailBlocks(s) {
       const v = toNum(s[c.key]);
       if (!v) return '';
       const pct = (v / 5) * 100;
-      return `
-        <div class="score-bar-row">
-          <span class="score-bar-label">${c.icon} ${c.label}</span>
-          <div class="score-bar"><div class="score-bar-fill" style="width:${pct}%;background:${scoreColor(v)}"></div></div>
-          <span class="score-bar-num">${v}</span>
-        </div>`;
+      return `<div class="score-bar-row">
+        <span class="score-bar-label">${c.icon} ${c.label}</span>
+        <div class="score-bar"><div class="score-bar-fill" style="width:${pct}%;background:${scoreColor(v)}"></div></div>
+        <span class="score-bar-num">${v}</span>
+      </div>`;
     }).join('');
-    return `<div class="detail-block"><div class="detail-block-title">📊 Puntuaciones por criterio</div>${rows}</div>`;
+    return rows ? `<div class="detail-block"><div class="detail-block-title">📊 Puntuaciones por criterio</div>${rows}</div>` : '';
   };
 
   return [
-    block('📋 Datos básicos', [
-      { label: 'Línea educativa', val: s.linea_educativa },
-      { label: 'Metodología',     val: s.metodologia },
-      { label: 'Apoyo/Refuerzo',  val: s.apoyo_refuerzo },
-      { label: 'Otros idiomas',   val: s.otros_idiomas },
-      { label: 'Libros/Editorial',val: s.libros_editorial },
+    block('📋 Proyecto educativo', [
+      { label:'Línea educativa',  val: s.linea_educativa },
+      { label:'Metodología',      val: s.metodologia },
+      { label:'Apoyo / refuerzo', val: s.apoyo_refuerzo },
+      { label:'Otros idiomas',    val: s.otros_idiomas },
+      { label:'Libros/Editorial', val: s.libros_editorial },
     ]),
     block('🏫 Entorno y clima', [
-      { label: 'Ambiente general',   val: s.ambiente_general },
-      { label: 'Limpieza',           val: s.limpieza_instalaciones != null ? `${s.limpieza_instalaciones}/5` : null },
-      { label: 'Comportamiento alumnos', val: s.comportamiento_ninos != null ? `${s.comportamiento_ninos}/5` : null },
-      { label: 'Trato dirección',    val: s.trato_direccion },
-      { label: 'Profesorado',        val: s.impresion_profesorado },
-      { label: 'Patio/exteriores',   val: s.patio_exteriores },
-      { label: 'Baños',              val: s.banos },
+      { label:'Ambiente general',      val: s.ambiente_general },
+      { label:'Limpieza',              val: s.limpieza_instalaciones > 0 ? `${s.limpieza_instalaciones}/5` : null },
+      { label:'Comportamiento alumnos',val: s.comportamiento_ninos > 0 ? `${s.comportamiento_ninos}/5` : null },
+      { label:'Trato dirección',       val: s.trato_direccion },
+      { label:'Profesorado',           val: s.impresion_profesorado },
+      { label:'Patio/exteriores',      val: s.patio_exteriores },
+      { label:'Baños',                 val: s.banos },
     ]),
     block('🚌 Logística familiar', [
-      { label: 'Horario lectivo',    val: s.horario_lectivo },
-      { label: 'Horario ampliado',   val: s.horario_ampliado },
-      { label: 'Comedor',            val: s.comedor },
-      { label: 'Extraescolares',     val: s.extraescolares },
-      { label: 'Campamentos',        val: s.campamentos },
-      { label: 'Entrada/Salida',     val: s.entrada_salida },
-      { label: 'Compatib. familiar', val: s.compatibilidad_familiar },
+      { label:'Horario lectivo',    val: s.horario_lectivo },
+      { label:'Horario ampliado',   val: s.horario_ampliado },
+      { label:'Comedor',            val: s.comedor },
+      { label:'Extraescolares',     val: s.extraescolares },
+      { label:'Campamentos',        val: s.campamentos },
+      { label:'Entrada / Salida',   val: s.entrada_salida },
+      { label:'Encaje familiar',    val: s.compatibilidad_familiar },
     ]),
     block('💶 Costes', [
-      { label: 'Coste comedor',      val: s.coste_comedor ? `${s.coste_comedor} €/mes` : null },
-      { label: 'Horario ampliado',   val: s.coste_horario_ampliado ? `${s.coste_horario_ampliado} €/mes` : null },
-      { label: 'Extraescolares',     val: s.coste_extraescolares ? `${s.coste_extraescolares} €/mes` : null },
-      { label: 'Total aprox.',       val: s.coste_mensual_aprox ? `${s.coste_mensual_aprox} €/mes` : null },
+      { label:'Comedor',            val: s.coste_comedor > 0 ? `${s.coste_comedor} €/mes` : null },
+      { label:'Horario ampliado',   val: s.coste_horario_ampliado > 0 ? `${s.coste_horario_ampliado} €/mes` : null },
+      { label:'Extraescolares',     val: s.coste_extraescolares > 0 ? `${s.coste_extraescolares} €/mes` : null },
+      { label:'Total estimado',     val: s.coste_mensual_aprox > 0 ? `${s.coste_mensual_aprox} €/mes` : null },
     ]),
-    block('💬 Valoración', [
-      { label: 'Lo mejor',           val: s.lo_mejor },
-      { label: 'Lo peor',            val: s.lo_peor },
-      { label: 'Dudas pendientes',   val: s.dudas_pendientes },
-      { label: 'Encaje familiar',    val: s.encaje_familiar },
-      { label: 'Nota manual',        val: s.nota_manual != null ? `${s.nota_manual}/10` : null },
+    block('💬 Valoración subjetiva', [
+      { label:'Lo mejor',           val: s.lo_mejor },
+      { label:'Lo peor',            val: s.lo_peor },
+      { label:'Dudas pendientes',   val: s.dudas_pendientes },
+      { label:'Encaje familiar',    val: s.encaje_familiar },
+      { label:'Nota manual',        val: s.nota_manual > 0 ? `${s.nota_manual}/10` : null },
     ]),
     scoreBlock(),
   ].join('');
@@ -677,40 +620,38 @@ function buildDetailBlocks(s) {
 // ═══════════════════════════════════════════════════════════
 
 function renderRanking() {
-  const top3Container = document.getElementById('top3Grid');
-  const top2Container = document.getElementById('top2Compare');
-
   const top3 = [...allSchools].sort((a, b) => b.score - a.score).slice(0, 3);
+  const grid  = document.getElementById('top3Grid');
+  const comp  = document.getElementById('top2Compare');
 
-  top3Container.innerHTML = '';
-  const medals = ['🥇', '🥈', '🥉'];
-  const rankCls = ['rank-1', 'rank-2', 'rank-3'];
+  const medals   = ['🥇','🥈','🥉'];
+  const rankCls  = ['rank-1','rank-2','rank-3'];
 
+  grid.innerHTML = '';
   top3.forEach((s, i) => {
     const card = document.createElement('div');
     card.className = `top3-card ${rankCls[i]}`;
 
     const strengths = WEIGHT_CRITERIA
       .filter(c => toNum(s[c.key]) >= 4)
-      .map(c => `<span class="tag tag--green">${c.icon} ${c.label}</span>`)
+      .map(c => `<span class="tag tag--${i===0?'orange':i===1?'blue':'green'}">${c.icon} ${c.label}</span>`)
       .join('');
 
     card.innerHTML = `
       <div class="top3-rank">${medals[i]}</div>
       <div class="top3-name">${s.colegio ?? '—'}</div>
-      <div class="top3-score">${s.score?.toFixed(1) ?? '—'}<small style="font-size:.7rem;font-weight:400;color:var(--clr-text-2)"> / 10</small></div>
+      <div class="top3-score">
+        <span class="top3-score-num">${s.score?.toFixed(1) ?? '—'}</span>
+        <span class="top3-score-den">/ 10</span>
+      </div>
       <div class="top3-reason">${buildRankReason(s, i)}</div>
-      <div class="top3-strengths">${strengths || '<span class="tag tag--gray">Sin datos suficientes</span>'}</div>
+      <div class="top3-strengths">${strengths || '<span class="tag">Sin datos suficientes</span>'}</div>
     `;
-    top3Container.appendChild(card);
+    grid.appendChild(card);
   });
 
-  // Compare top 2
-  if (top3.length >= 2) {
-    renderTop2Compare(top3[0], top3[1], top2Container);
-  } else {
-    top2Container.innerHTML = '';
-  }
+  if (top3.length >= 2) renderTop2Compare(top3[0], top3[1], comp);
+  else comp.innerHTML = '';
 }
 
 function buildRankReason(s, rank) {
@@ -718,14 +659,13 @@ function buildRankReason(s, rank) {
     .filter(c => toNum(s[c.key]) >= 4)
     .map(c => c.label.toLowerCase());
 
-  if (rank === 0) {
-    return strengths.length
-      ? `Destaca en <strong>${strengths.slice(0, 2).join('</strong> y <strong>')}</strong> según tus pesos actuales.`
-      : 'Mejor puntuación ponderada con los criterios actuales.';
-  }
-  return strengths.length
-    ? `Fuerte en <strong>${strengths.slice(0, 2).join('</strong> y <strong>')}</strong>.`
+  if (!strengths.length) return rank === 0
+    ? 'Mejor puntuación ponderada con los criterios actuales.'
     : `Score: ${s.score?.toFixed(1) ?? '—'}`;
+
+  return rank === 0
+    ? `Destaca especialmente en <strong>${strengths.slice(0, 2).join('</strong> y <strong>')}</strong>.`
+    : `Fuerte en <strong>${strengths.slice(0, 2).join('</strong> y <strong>')}</strong>.`;
 }
 
 function renderTop2Compare(a, b, container) {
@@ -733,33 +673,30 @@ function renderTop2Compare(a, b, container) {
     const va = toNum(a[c.key]);
     const vb = toNum(b[c.key]);
     if (!va && !vb) return '';
-    const maxV = 5;
-    const pctA = Math.round((va / maxV) * 100);
-    const pctB = Math.round((vb / maxV) * 100);
-    const winner = va > vb ? 'left' : vb > va ? 'right' : 'tie';
+    const pctA = Math.round((va / 5) * 100);
+    const pctB = Math.round((vb / 5) * 100);
+    const winA = va > vb, winB = vb > va;
     return `
       <div class="compare-row">
-        <div class="compare-bar-left">
-          <div class="fill" style="width:${pctA}%;${winner==='left'?'background:var(--clr-primary)':'background:var(--clr-border)'}"></div>
+        <div class="cbar-left">
+          <div class="fill" style="width:${pctA}%;${!winA ? 'opacity:.35' : ''}"></div>
         </div>
-        <div class="compare-center" title="${c.label}">${c.icon}<br><small>${c.label.split(' ')[0]}</small></div>
-        <div class="compare-bar-right">
-          <div class="fill" style="width:${pctB}%;${winner==='right'?'background:#f0a500':'background:var(--clr-border)'}"></div>
+        <div class="compare-center-label" title="${c.label}">${c.icon}</div>
+        <div class="cbar-right">
+          <div class="fill" style="width:${pctB}%;${!winB ? 'opacity:.35' : ''}"></div>
         </div>
-      </div>
-    `;
+      </div>`;
   }).join('');
 
   container.innerHTML = `
-    <div class="top2-compare">
-      <div class="compare-title" style="display:grid;grid-template-columns:1fr 80px 1fr;gap:8px;text-align:center;margin-bottom:12px">
-        <strong style="color:var(--clr-primary)">${a.colegio ?? '—'}</strong>
-        <span style="font-size:.75rem;color:var(--clr-text-3)">vs</span>
-        <strong style="color:#b45309">${b.colegio ?? '—'}</strong>
+    <div class="top2-compare-wrap">
+      <div class="compare-names">
+        <div class="compare-name-a">${a.colegio ?? '—'}</div>
+        <div class="compare-vs">vs</div>
+        <div class="compare-name-b">${b.colegio ?? '—'}</div>
       </div>
       <div class="compare-grid">${rows}</div>
-    </div>
-  `;
+    </div>`;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -767,31 +704,26 @@ function renderTop2Compare(a, b, container) {
 // ═══════════════════════════════════════════════════════════
 
 function renderCurrentView() {
-  if (currentView === 'table') {
-    renderTable();
-  } else {
-    renderCards();
-  }
-  updateSortBar();
+  if (currentView === 'table') renderTable();
+  else renderCards();
+  updateSortUI();
   updateActiveFiltersBar();
 }
 
-function updateSortBar() {
+function updateSortUI() {
   document.querySelectorAll('.sort-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.sort === currentSort.field);
   });
-  const dir = document.getElementById('sortDir');
-  if (dir) {
-    dir.textContent = currentSort.asc ? '↑' : '↓';
-    dir.dataset.asc = currentSort.asc;
-  }
+  const label = document.getElementById('sortDirLabel');
+  const icon  = document.getElementById('sortDirIcon');
+  if (label) label.textContent = currentSort.asc ? 'Menor a mayor' : 'Mayor a menor';
+  if (icon)  icon.style.transform = currentSort.asc ? 'rotate(180deg)' : '';
 }
 
 function updateActiveFiltersBar() {
   const bar  = document.getElementById('activeFiltersBar');
   const tags = document.getElementById('activeFilterTags');
   const active = [];
-
   if (activeFilter !== 'all') active.push(activeFilter);
   if (searchQuery) active.push(`"${searchQuery}"`);
 
@@ -809,7 +741,7 @@ function updateActiveFiltersBar() {
 
 function bindListeners() {
   // View toggle
-  document.getElementById('btnTable').addEventListener('click', () => {
+  document.getElementById('btnTable')?.addEventListener('click', () => {
     currentView = 'table';
     document.getElementById('btnTable').classList.add('active');
     document.getElementById('btnCards').classList.remove('active');
@@ -818,7 +750,7 @@ function bindListeners() {
     renderTable();
   });
 
-  document.getElementById('btnCards').addEventListener('click', () => {
+  document.getElementById('btnCards')?.addEventListener('click', () => {
     currentView = 'cards';
     document.getElementById('btnCards').classList.add('active');
     document.getElementById('btnTable').classList.remove('active');
@@ -828,19 +760,18 @@ function bindListeners() {
   });
 
   // Search
-  const searchInput = document.getElementById('searchInput');
   let searchTimer;
-  searchInput.addEventListener('input', () => {
+  document.getElementById('searchInput')?.addEventListener('input', e => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => {
-      searchQuery = searchInput.value.trim();
+      searchQuery = e.target.value.trim();
       applyFiltersAndSort();
       renderCurrentView();
-    }, 250);
+    }, 220);
   });
 
-  // Chip filters
-  document.getElementById('filterChips').addEventListener('click', e => {
+  // Chips
+  document.getElementById('filterChips')?.addEventListener('click', e => {
     const chip = e.target.closest('.chip');
     if (!chip) return;
     document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
@@ -854,25 +785,21 @@ function bindListeners() {
   document.querySelectorAll('.sort-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const field = btn.dataset.sort;
-      if (currentSort.field === field) {
-        currentSort.asc = !currentSort.asc;
-      } else {
-        currentSort.field = field;
-        currentSort.asc   = field !== 'score'; // score defaults desc
-      }
+      if (currentSort.field === field) { currentSort.asc = !currentSort.asc; }
+      else { currentSort.field = field; currentSort.asc = field !== 'score'; }
       applyFiltersAndSort();
       renderCurrentView();
     });
   });
 
-  // Sort direction toggle
+  // Sort direction
   document.getElementById('sortDir')?.addEventListener('click', () => {
     currentSort.asc = !currentSort.asc;
     applyFiltersAndSort();
     renderCurrentView();
   });
 
-  // Reset filters
+  // Reset
   document.getElementById('resetFiltersBtn')?.addEventListener('click', () => {
     activeFilter = 'all';
     searchQuery  = '';
@@ -883,24 +810,23 @@ function bindListeners() {
     renderCurrentView();
   });
 
-  // Weights panel toggle
+  // Weights collapse
   document.getElementById('weightsToggleBtn')?.addEventListener('click', () => {
-    document.getElementById('weightsSection').classList.toggle('collapsed');
+    document.getElementById('weightsSection').classList.toggle('weights-collapsed');
   });
 }
 
 // ═══════════════════════════════════════════════════════════
-// 12. SHOW UI SECTIONS
+// 12. SHOW APP
 // ═══════════════════════════════════════════════════════════
 
 function showApp() {
   document.getElementById('loadingState').classList.add('hidden');
-  document.getElementById('dashboardSection').classList.remove('hidden');
-  document.getElementById('weightsSection').classList.remove('hidden');
+  document.getElementById('appLayout').classList.remove('hidden');
   document.getElementById('sortBar').classList.remove('hidden');
   document.getElementById('rankingSection').classList.remove('hidden');
+  document.getElementById('dashboardSection').classList.remove('hidden');
 
-  // Default view: table on desktop, cards on mobile
   const isMobile = window.innerWidth <= 768;
   if (isMobile) {
     currentView = 'cards';
@@ -908,8 +834,6 @@ function showApp() {
   } else {
     currentView = 'table';
     document.getElementById('tableView').classList.remove('hidden');
-    document.getElementById('btnTable').classList.add('active');
-    document.getElementById('btnCards').classList.remove('active');
   }
 }
 
@@ -918,12 +842,10 @@ function showApp() {
 // ═══════════════════════════════════════════════════════════
 
 async function init() {
-  // Timestamp
   document.getElementById('lastUpdate').textContent =
-    `Actualizado: ${new Date().toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}`;
+    `Actualizado: ${new Date().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}`;
 
   let rawData;
-  let usedFallback = false;
 
   try {
     const csv = await fetchCSV(CSV_URL);
@@ -931,27 +853,21 @@ async function init() {
     if (!rawData.length) throw new Error('CSV vacío');
   } catch (err) {
     console.warn('Error cargando CSV, usando fallback:', err);
-    rawData    = MOCK_DATA;
-    usedFallback = true;
+    rawData = MOCK_DATA;
     document.getElementById('errorState').classList.remove('hidden');
   }
 
-  // Normalize & filter inactive
-  const normalized = rawData
-    .map(normalizeSchool)
-    .filter(s => s.activo_bool);
+  const normalized = rawData.map(normalizeSchool).filter(s => s.activo_bool);
 
   if (!normalized.length) {
     document.getElementById('loadingState').innerHTML =
-      '<p style="color:var(--clr-text-2);padding:40px">No hay colegios activos para mostrar.</p>';
+      '<div class="loading-inner"><p style="color:var(--text-3)">No hay colegios activos para mostrar.</p></div>';
     return;
   }
 
-  // Apply initial scores
   allSchools = applyScores(normalized);
   applyFiltersAndSort();
 
-  // Render
   renderWeightsPanel();
   showApp();
   renderInsights();
@@ -960,5 +876,4 @@ async function init() {
   bindListeners();
 }
 
-// Start
 document.addEventListener('DOMContentLoaded', init);
