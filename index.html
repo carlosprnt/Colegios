@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Comparador de Colegios</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header class="site-header">
+    <div class="header-inner container">
+      <div class="header-title">
+        <h1>🏫 Comparador de Colegios</h1>
+        <p class="header-subtitle">Comparativa familiar desde Infantil 3 años en adelante</p>
+      </div>
+      <div class="header-controls">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Buscar colegio..." autocomplete="off" />
+        </div>
+        <div class="filter-chips" id="filterChips">
+          <button class="chip active" data-filter="all">Todos</button>
+          <button class="chip" data-filter="concertado">Concertado</button>
+          <button class="chip" data-filter="privado">Privado</button>
+          <button class="chip" data-filter="publico">Público</button>
+          <button class="chip" data-filter="ingles">Buen inglés</button>
+          <button class="chip" data-filter="cercano">Cercano</button>
+          <button class="chip" data-filter="continuidad">Continuidad</button>
+        </div>
+        <div class="view-toggle">
+          <button id="btnTable" class="view-btn active" title="Vista tabla">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+            Tabla
+          </button>
+          <button id="btnCards" class="view-btn" title="Vista tarjetas">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Tarjetas
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- ===== LOADING STATE ===== -->
+    <div id="loadingState" class="loading-state">
+      <div class="spinner"></div>
+      <p>Cargando datos desde Google Sheets…</p>
+    </div>
+
+    <!-- ===== ERROR STATE ===== -->
+    <div id="errorState" class="error-state hidden">
+      <span>⚠️</span>
+      <p>No se pudieron cargar los datos. Usando datos de ejemplo.</p>
+    </div>
+
+    <!-- ===== DASHBOARD INSIGHTS ===== -->
+    <section id="dashboardSection" class="hidden">
+      <h2 class="section-title">Resumen e Insights</h2>
+
+      <!-- Fila 1: datos objetivos -->
+      <div class="insight-grid" id="insightGrid1"></div>
+
+      <!-- Fila 2: insights interpretativos -->
+      <h3 class="section-subtitle">Análisis interpretativo</h3>
+      <div class="insight-grid insight-grid--secondary" id="insightGrid2"></div>
+    </section>
+
+    <!-- ===== PANEL DE PESOS ===== -->
+    <section id="weightsSection" class="weights-section hidden">
+      <div class="weights-header" id="weightsToggleBtn">
+        <h2 class="section-title" style="margin:0">⚖️ Ajusta los pesos de cada criterio</h2>
+        <span class="weights-toggle-icon">▼</span>
+      </div>
+      <p class="weights-hint">La nota final se recalcula en tiempo real. Los insights también se actualizan.</p>
+      <div class="weights-grid" id="weightsGrid"></div>
+    </section>
+
+    <!-- ===== FILTROS ACTIVOS ===== -->
+    <div class="active-filters-bar hidden" id="activeFiltersBar">
+      <span class="active-filters-label">Filtros activos:</span>
+      <div id="activeFilterTags"></div>
+      <button id="resetFiltersBtn" class="btn-reset">Resetear filtros</button>
+    </div>
+
+    <!-- ===== SORT BAR ===== -->
+    <div class="sort-bar hidden" id="sortBar">
+      <span class="sort-label">Ordenar por:</span>
+      <div class="sort-buttons">
+        <button class="sort-btn active" data-sort="score">Nota final</button>
+        <button class="sort-btn" data-sort="distancia_casa">Distancia</button>
+        <button class="sort-btn" data-sort="nivel_ingles">Inglés</button>
+        <button class="sort-btn" data-sort="ratio">Ratio</button>
+        <button class="sort-btn" data-sort="coste_mensual_aprox">Coste</button>
+      </div>
+      <span id="sortDir" class="sort-dir" data-asc="true">↑</span>
+    </div>
+
+    <!-- ===== VISTA TABLA (desktop) ===== -->
+    <section id="tableView" class="view-section hidden">
+      <div class="table-wrapper">
+        <table id="compTable" class="comp-table">
+          <thead id="compTableHead"></thead>
+          <tbody id="compTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== VISTA CARDS (mobile / toggle) ===== -->
+    <section id="cardsView" class="view-section hidden">
+      <div class="cards-grid" id="cardsGrid"></div>
+    </section>
+
+    <!-- ===== RANKING FINAL ===== -->
+    <section id="rankingSection" class="ranking-section hidden">
+      <h2 class="section-title">🏆 Ranking Final</h2>
+      <div class="top3-grid" id="top3Grid"></div>
+      <div class="top2-compare" id="top2Compare"></div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>Datos cargados desde <strong>Google Sheets</strong> · La nota principal es el score ponderado según tus pesos · <span id="lastUpdate"></span></p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
